@@ -1,8 +1,20 @@
 const express = require('express');
 const admin = require('firebase-admin');
 
-// 1. Initialize Firebase with your service account
-const serviceAccount = require("./clgres-firebase-adminsdk-fbsvc-869f328c96.json");
+let serviceAccount;
+
+// Check if we are on Render (using the environment variable)
+if (process.env.FIREBASE_CONFIG) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
+} else {
+    // Check if we are running locally (using the file)
+    try {
+        serviceAccount = require("./clgres-firebase-adminsdk-fbsvc-869f328c96.json");
+    } catch (e) {
+        console.error("Firebase config not found! Make sure FIREBASE_CONFIG env var is set on Render.");
+        process.exit(1);
+    }
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
