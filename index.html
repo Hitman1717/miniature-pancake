@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Results <span class="badge">v2.0</span></h1>
+            <p>Enter your hall ticket number to view your academic performance.</p>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="rollNo" placeholder="e.g. 22011P0561" spellcheck="false">
+            <button onclick="fetchResults()">Search</button>
+        </div>
+
+        <div id="error-message" class="error-hide">Student not found. Please check the Roll No.</div>
+
+        <div id="results-container" class="hidden">
+            <div class="student-profile">
+                <div class="profile-header">
+                    <h2 id="student-name">---</h2>
+                    <p id="student-roll">---</p>
+                </div>
+                <div id="backlog-alert" class="backlog-warning hidden">
+                    ⚠️ Warning: You have active backlogs.
+                </div>
+            </div>
+
+            <div id="semesters-grid" class="sem-grid">
+                </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

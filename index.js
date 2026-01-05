@@ -1,8 +1,7 @@
 const express = require('express');
 const admin = require('firebase-admin');
-
+const cors = require('cors');
 let serviceAccount;
-
 // Check if we are on Render (using the environment variable)
 if (process.env.FIREBASE_CONFIG) {
     serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
@@ -22,6 +21,7 @@ admin.initializeApp({
 
 const db = admin.firestore();
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 /**
