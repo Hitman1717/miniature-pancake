@@ -1,0 +1,16 @@
+
+# Dependency directories
+node_modules/
+
+# Firebase Service Account (CRITICAL: Do not upload this)
+clgres-firebase-adminsdk-fbsvc-869f328c96.json
+
+# Environment variables and local configs
+.env
+testing/environments/
+
+# System and Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
