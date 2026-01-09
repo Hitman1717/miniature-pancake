@@ -49,49 +49,53 @@ const calculateSGPA = (subjects, benchmarkCredits) => {
 app.get('/results/:rollno', async (req, res) => {
     try {
         const rollno = req.params.rollno.toUpperCase();
-        
-        // 1. Fetch the profile AND the semester subcollection
         const studentRef = db.collection('students').doc(rollno);
         const [studentDoc, semSnapshot] = await Promise.all([
             studentRef.get(),
             studentRef.collection('semesters').get()
         ]);
 
-        // 2. CHECK: If there are NO semesters, then the student is truly missing
         if (semSnapshot.empty) {
-            return res.status(404).json({ error: "Student not found in our records" });
+            return res.status(404).json({ error: "Student not found" });
         }
 
-        // 3. GET DATA: Use existing data or a fallback if the profile doc is missing
-        const studentData = studentDoc.exists ? studentDoc.data() : { 
-            fullName: "Student " + rollno, 
-            current_backlogs: [] 
-        };
-
-        const semesters = {};
+        const studentData = studentDoc.exists ? studentDoc.data() : { fullName: "Student " + rollno };
+        const results = {};
+        const backlogs = []; // This will store the string array of backlog codes
+        
         let totalWeightedPoints = 0;
         let totalCumulativeCredits = 0;
 
         semSnapshot.forEach(doc => {
             const data = doc.data();
-            // Match the field name from your Python script ('subjects')
-            const subjects = data.subjects || []; 
+            const subjects = data.subjects || [];
             const benchmark = data.benchmarked_credits || 0;
 
+            // Identify backlogs in this semester
+            subjects.forEach(sub => {
+                if (sub.grade === 'F' || sub.grade === 'AB') {
+                    backlogs.push(sub.code); // Adding code to the string array
+                }
+            });
+
             const sgpa = calculateSGPA(subjects, benchmark);
-            
-            semesters[`sem_${doc.id}`] = {
-                ...data,
+            const status = subjects.some(s => s.grade === 'F' || s.grade === 'AB') ? "FAIL" : "PASS";
+
+            results[`sem_${doc.id}`] = {
+                semester: doc.id,
+                status: status,
                 sgpa: sgpa,
-                subject: subjects // Mapping for your old UI
+                credits: subjects.reduce((acc, s) => acc + (s.grade !== 'F' && s.grade !== 'AB' ? s.credit : 0), 0),
+                subjects: subjects
             };
 
-            if (sgpa > 0) {
-                subjects.forEach(s => {
+            // CGPA calculation (only include points if passed the subject)
+            subjects.forEach(s => {
+                if (s.grade !== 'F' && s.grade !== 'AB') {
                     totalWeightedPoints += (parseFloat(s.gp) * parseFloat(s.credit));
                     totalCumulativeCredits += parseFloat(s.credit);
-                });
-            }
+                }
+            });
         });
 
         const cgpa = totalCumulativeCredits > 0 ? (totalWeightedPoints / totalCumulativeCredits).toFixed(2) : "0.00";
@@ -99,14 +103,13 @@ app.get('/results/:rollno', async (req, res) => {
         res.json({
             rollNo: rollno,
             fullName: studentData.fullName,
-            currentBacklogs: studentData.current_backlogs || [],
+            backlogs: backlogs, // String array: ["22CS29", "22M01", ...]
             cgpa: cgpa,
-            results: semesters
+            results: results
         });
 
     } catch (error) {
-        console.error("Error fetching data:", error);
-        res.status(500).json({ error: "Server Error: " + error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
