@@ -49,35 +49,43 @@ const calculateSGPA = (subjects, benchmarkCredits) => {
 app.get('/results/:rollno', async (req, res) => {
     try {
         const rollno = req.params.rollno.toUpperCase();
-        const studentDoc = await db.collection('students').doc(rollno).get();
         
-        if (!studentDoc.exists) {
-            return res.status(404).json({ error: "Student not found" });
+        // 1. Fetch the profile AND the semester subcollection
+        const studentRef = db.collection('students').doc(rollno);
+        const [studentDoc, semSnapshot] = await Promise.all([
+            studentRef.get(),
+            studentRef.collection('semesters').get()
+        ]);
+
+        // 2. CHECK: If there are NO semesters, then the student is truly missing
+        if (semSnapshot.empty) {
+            return res.status(404).json({ error: "Student not found in our records" });
         }
 
-        const studentData = studentDoc.data();
-        const semSnapshot = await db.collection('students').doc(rollno).collection('semesters').get();
-        
-        let results = {};
+        // 3. GET DATA: Use existing data or a fallback if the profile doc is missing
+        const studentData = studentDoc.exists ? studentDoc.data() : { 
+            fullName: "Student " + rollno, 
+            current_backlogs: [] 
+        };
+
+        const semesters = {};
         let totalWeightedPoints = 0;
         let totalCumulativeCredits = 0;
 
         semSnapshot.forEach(doc => {
             const data = doc.data();
-            const subjects = data.subjects || []; // Note: changed from 'subject' to 'subjects' to match new DB
+            // Match the field name from your Python script ('subjects')
+            const subjects = data.subjects || []; 
             const benchmark = data.benchmarked_credits || 0;
 
             const sgpa = calculateSGPA(subjects, benchmark);
             
-            // Prepare the semester object for your frontend
-            results[`sem_${doc.id}`] = {
+            semesters[`sem_${doc.id}`] = {
                 ...data,
                 sgpa: sgpa,
-                // Match your old UI's expected 'subject' field if necessary
-                subject: subjects 
+                subject: subjects // Mapping for your old UI
             };
 
-            // Prep for CGPA (Only count credits if they passed the whole sem)
             if (sgpa > 0) {
                 subjects.forEach(s => {
                     totalWeightedPoints += (parseFloat(s.gp) * parseFloat(s.credit));
@@ -92,11 +100,13 @@ app.get('/results/:rollno', async (req, res) => {
             rollNo: rollno,
             fullName: studentData.fullName,
             currentBacklogs: studentData.current_backlogs || [],
-            cgpa: cgpa, // New field your UI can use
-            results: results
+            cgpa: cgpa,
+            results: semesters
         });
+
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("Error fetching data:", error);
+        res.status(500).json({ error: "Server Error: " + error.message });
     }
 });
 
